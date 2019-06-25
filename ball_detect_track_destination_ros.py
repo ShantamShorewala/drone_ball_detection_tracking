@@ -123,7 +123,7 @@ def imu_cb(data):
     orientation_q = data.orientation
     orientation_list = (orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
     (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
-    (roll, pitch, yaw) = (roll * 180.0/3.1416, pitch * 180.0/3.1416, yaw  * 180.0/3.1416)
+    #(roll, pitch, yaw) = (roll * 180.0/3.1416, pitch * 180.0/3.1416, yaw  * 180.0/3.1416)
 
 def gps_local_cb(data):
     global cart_x, cart_y, home_x, home_y, home_xy_recorded, discard_samples, desired_x, desired_y, start_y
@@ -142,6 +142,36 @@ def gps_local_cb(data):
   #       desired_y = cart_y
   #       start_y = home_yaw
 		# home_xy_recorded = True
+
+def transform(x, y, z, X, Y, Z, r, p, y):
+
+	#x,y,z are destination coordinates
+	#X,Y,Z are drone coordinates with respect to initial position
+	transform_matrix = np.zeros(3,4)
+	dest = np.zeros(4,1)
+	trans = np.zeros(4,1)
+
+	dest[0], dest[1], dest[2] = x, y, z
+
+	transform_matrix[0][0] = cos(yaw)*cos(pitch)
+	transform_matrix[0][1] = cos(yaw)*sin(pitch)*sin(roll) - sin(yaw)*cos(roll)
+	transform_matrix[0][2] = cos(yaw)*sin(pitch)*sin(roll) + sin(yaw)*sin(roll)
+	transform_matrix[0][3] = X
+
+	transform_matrix[1][0] = sin(yaw)*cos(pitch)
+	transform_matrix[1][1] = sin(yaw)*sin(pitch)*sin(roll) + cos(yaw)*cos(roll)
+	transform_matrix[1][2] = cos(yaw)*sin(pitch)*cos(roll) - cos(yaw)*sin(roll)
+	transform_matrix[1][3] = Y
+
+	transform_matrix[2][0] = -sin(pitch)
+	transform_matrix[2][1] = cos(pitch)*sin(roll)
+	transform_matrix[2][2] = cos(pitch)*cos(roll)
+	transform_matrix[2][3] = Z
+
+	trans = np.matmul(transform_matrix, dest)
+
+	return(trans[0], trans[1], trans[2])
+
 
 def contourShape(cx, cy):
 
@@ -459,8 +489,17 @@ def track():
 
 					centerx, centery, rad = int(centerx), int(centery), int(rad)
 					print ("undetected  ", centerx, "  ", centery)
-					depth, cal_x, cal_y = getDepth(rad, centerx, centery, height, width)
-					#use depth, cal_x, cal_y to get (z,x,y)
+					cal_x, cal_y, cal_z = getDepth(rad, centerx, centery, height, width)
+					
+					transformed_x, transformed_y, transformed_z = transform(cal_x, cal_y, cal_z, cart_x, cart_y, cart_z, roll, pitch, yaw)
+					desired_point = PointStamped(header=Header(stamp=rospy.get_rostime()))
+					desired_point.header.frame_id = 'target_location'
+			        desired_point.point.x = transformed_x
+			        desired_point.point.y = transformed_y
+			        desired_point.point.z = transformed_z
+			        pub.publish(desired_point)
+
+
 					cv2.putText(frame, "Depth: %f"  %depth, (50, 50), cv2.FONT_HERSHEY_SIMPLEX,0.5, [50,200,250])
 					cv2.circle(frame, (centerx, centery), rad, [0,0,255], 2, 8)
 					cv2.line(frame,(centerx, centery + 20), (centerx + 50, centery + 20), [100,100,255], 2,8)
@@ -474,8 +513,16 @@ def track():
 						predictedCoords = kfObj.Estimate(centerx, centery)
 						print("tracked", centerx, "  ", centery)
 
-						depth, cal_x, cal_y = getDepth(rad, centerx, centery, height, width)
-						#use depth, cal_x, cal_y to get (z,x,y)
+						cal_x, cal_y, cal_z = getDepth(rad, centerx, centery, height, width)
+
+						transformed_x, transformed_y, transformed_z = transform(cal_x, cal_y, cal_z, cart_x, cart_y, cart_z, roll, pitch, yaw)
+						desired_point = PointStamped(header=Header(stamp=rospy.get_rostime()))
+						desired_point.header.frame_id = 'target_location'
+				        desired_point.point.x = transformed_x
+				        desired_point.point.y = transformed_y
+				        desired_point.point.z = transformed_z
+				        pub.publish(desired_point)	
+							
 						cv2.putText(frame, "Depth: %f"  %depth, (50, 50), cv2.FONT_HERSHEY_SIMPLEX,0.5, [50,200,250])
 						cv2.circle(frame, (centerx, centery), rad, [0,0,255], 2, 8)
 						cv2.line(frame,(centerx, centery + 20), (centerx + 50, centery + 20), [100,100,255], 2,8)

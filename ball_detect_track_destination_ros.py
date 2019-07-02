@@ -143,30 +143,33 @@ def gps_local_cb(data):
   #       start_y = home_yaw
 		# home_xy_recorded = True
 
-def transform(x, y, z, X, Y, Z, r, p, y):
+def transform(x, y, z, X, Y, Z, roll_x, pitch_y, yaw_z):
 
 	#x,y,z are destination coordinates
 	#X,Y,Z are drone coordinates with respect to initial position
+
 	transform_matrix = np.zeros(3,4)
 	dest = np.zeros(4,1)
 	trans = np.zeros(4,1)
 
-	dest[0], dest[1], dest[2] = x, y, z
+	dest[0], dest[1], dest[2], dest[3] = x, y, z, 1
 
-	transform_matrix[0][0] = cos(yaw)*cos(pitch)
-	transform_matrix[0][1] = cos(yaw)*sin(pitch)*sin(roll) - sin(yaw)*cos(roll)
-	transform_matrix[0][2] = cos(yaw)*sin(pitch)*sin(roll) + sin(yaw)*sin(roll)
+	transform_matrix[0][0] = cos(yaw_z)*cos(pitch_y)
+	transform_matrix[0][1] = cos(yaw_z)*sin(pitch_y)*sin(roll_x) - sin(yaw_z)*cos(roll_x)
+	transform_matrix[0][2] = sin(yaw_z)*sin(pitch_y)*cos(roll_x) - sin(roll_x)*cos(yaw_z)
 	transform_matrix[0][3] = X
 
-	transform_matrix[1][0] = sin(yaw)*cos(pitch)
-	transform_matrix[1][1] = sin(yaw)*sin(pitch)*sin(roll) + cos(yaw)*cos(roll)
-	transform_matrix[1][2] = cos(yaw)*sin(pitch)*cos(roll) - cos(yaw)*sin(roll)
+	transform_matrix[1][0] = sin(yaw_z)*cos(pitch_y)
+	transform_matrix[1][1] = sin(yaw_z)*sin(pitch_y)*sin(roll_x) + cos(yaw_z)*cos(roll_x)
+	transform_matrix[1][2] = sin(yaw_z)*sin(pitch_y)*cos(roll_x) - cos(yaw_z)*sin(roll_x)
 	transform_matrix[1][3] = Y
 
-	transform_matrix[2][0] = -sin(pitch)
-	transform_matrix[2][1] = cos(pitch)*sin(roll)
-	transform_matrix[2][2] = cos(pitch)*cos(roll)
+	transform_matrix[2][0] = -sin(pitch_y)
+	transform_matrix[2][1] = cos(pitch_y)*sin(roll_x)
+	transform_matrix[2][2] = cos(pitch_y)*cos(roll_x)
 	transform_matrix[2][3] = Z
+
+	transform_matrix[3][3] = 1
 
 	trans = np.matmul(transform_matrix, dest)
 
